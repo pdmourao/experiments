@@ -1,7 +1,8 @@
 import numpy as np
-from time import process_time
+from time import time as ttime
 from tqdm import tqdm
 from laboratory.systems import TAM as tam
+# from systemsCopy import TAM as tam
 
 def sanity_check(*args, checker = None, idx = None):
     if checker is not None:
@@ -11,7 +12,7 @@ def sanity_check(*args, checker = None, idx = None):
 
 def splitting_optimal(entropy, neurons, layers, k, m, r_values, beta_values, lmb_values, max_it, error, av_counter, h_norm, dynamic, checker = None, disable = True):
 
-    t = process_time()
+    t = ttime()
     len_r = len(r_values)
 
     rng_seeds = np.random.SeedSequence(entropy).spawn(len_r)
@@ -39,7 +40,7 @@ def splitting_optimal(entropy, neurons, layers, k, m, r_values, beta_values, lmb
             if not disable:
                 pbar.update(1)
 
-    t = process_time() - t
+    t = ttime() - t
     print(f'System ran in {round(t / 60)} minutes.')
 
     return mattis, mattis_ex, max_its
@@ -56,7 +57,7 @@ def splitting_beta(entropy, beta_values, neurons, k, layers, supervised, r, lmb,
     mattis_ex = np.zeros((len_beta, 2, 3, 3))
     max_its = np.zeros((len_beta, 2), dtype=int)
 
-    t = process_time()
+    t = ttime()
 
 
     system = tam(rng_ss = np.random.SeedSequence(entropy = entropy), neurons = neurons, r = r, lmb = lmb, m = m, supervised = supervised, split = False, layers = layers)
@@ -77,7 +78,7 @@ def splitting_beta(entropy, beta_values, neurons, k, layers, supervised, r, lmb,
         sanity_check(mattis, mattis_ex, max_its, checker = checker, idx = idx_beta)
 
     if not disable:
-        print(f'Sample ran in {round(process_time() - t / 60)} minutes.')
+        print(f'Sample ran in {round(ttime() - t / 60)} minutes.')
 
     return mattis, mattis_ex, max_its
 
@@ -87,6 +88,7 @@ def disentanglement(neurons, layers, k, r, m, lmb, split, supervised, beta, h_no
 
     system = tam(rng_ss = rng_ss, neurons=neurons, layers = layers, r=r, m=m, lmb=lmb, split = split, supervised = supervised)
 
+    t = ttime()
     system.add_patterns(k)
     system.initial_state = system.mix()
     system.external_field = system.mix(0)
@@ -94,16 +96,19 @@ def disentanglement(neurons, layers, k, r, m, lmb, split, supervised, beta, h_no
     return system.simulate(beta=beta, h_norm = h_norm, max_it=max_it, error=error, av_counter=av_counter, dynamic=dynamic, av = av)
 
 
-def disentanglement_2d(entropy, y_values, y_arg, x_values, x_arg, disable=True, checker = None, **kwargs):
+def disentanglement_2d(entropy, y_values, y_arg, x_values, x_arg, m, supervised, disable=True, checker = None, **kwargs):
 
     len_y = len(y_values)
     len_x = len(x_values)
 
     mattis = np.zeros((len_x, len_y, 3, 3))
-    mattis_ex = np.zeros((len_x, len_y, 3, 3))
+    if supervised:
+        mattis_ex = np.zeros((len_x, len_y, 3, 3))
+    else:
+        mattis_ex = np.zeros((len_x, len_y, m, 3, 3))
     max_its = np.zeros((len_x, len_y), dtype=int)
 
-    t0 = process_time()
+    t0 = ttime()
 
     rng_seeds = np.random.SeedSequence(entropy).spawn(len_x * len_y)
 
@@ -112,12 +117,14 @@ def disentanglement_2d(entropy, y_values, y_arg, x_values, x_arg, disable=True, 
             kwargs[x_arg] = x_v
             for idx_y, y_v in enumerate(y_values):
                 kwargs[y_arg] = y_v
-                mattis[idx_x, idx_y], mattis_ex[idx_x, idx_y], max_its[idx_x, idx_y] = disentanglement(rng_ss=rng_seeds[idx_x * len_y + idx_y], **kwargs)
+
+                mattis[idx_x, idx_y], mattis_ex[idx_x, idx_y], max_its[idx_x, idx_y] = disentanglement(rng_ss=rng_seeds[idx_x * len_y + idx_y], m = m, supervised = supervised, **kwargs)
+
                 sanity_check(mattis, mattis_ex, max_its, checker = checker, idx = (idx_x, idx_y))
                 if not disable:
                     pbar.update(1)
 
-    print(f'System ran in {round((process_time()-t0 )/ 60)} minutes.')
+    print(f'System ran in {round((ttime()-t0 )/ 60)} minutes.')
 
     return mattis, mattis_ex, max_its
 
@@ -138,7 +145,7 @@ def disentanglement_lmb_beta(entropy, neurons, layers, k, r, m, lmb, beta, dynam
         mattis_ex = np.zeros((len_lmb, len_beta, m, 3, 3))
     max_its = np.zeros((len_lmb, len_beta))
 
-    t = process_time()
+    t = ttime()
 
     system = tam(rng_ss = np.random.SeedSequence(entropy = entropy), neurons=neurons, layers = layers, r=r, m=m, split = split, supervised = supervised)
 
@@ -157,7 +164,7 @@ def disentanglement_lmb_beta(entropy, neurons, layers, k, r, m, lmb, beta, dynam
                 if not disable:
                     pbar.update(1)
 
-    t = process_time() - t
+    t = ttime() - t
     print(f'System ran in {round(t / 60)} minutes.')
 
     return mattis, mattis_ex, max_its
