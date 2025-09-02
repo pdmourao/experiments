@@ -36,5 +36,5 @@ kwargs = {'x_arg': 'r',
 experiment = lab.Experiment(directory = 'Data', func = funcs.disentanglement_2d, **kwargs)
 experiment.create()
 for sample in experiment.samples_missing(50):
-    experiment.run(sample, disable = False)
+    experiment.run(sample, disable = True)
 
