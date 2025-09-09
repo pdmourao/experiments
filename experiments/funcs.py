@@ -2,7 +2,6 @@ import numpy as np
 from time import time as ttime
 from tqdm import tqdm
 from laboratory.systems import TAM as tam
-# from systemsCopy import TAM as tam
 
 def sanity_check(*args, checker = None, idx = None):
     if checker is not None:
@@ -86,27 +85,32 @@ def splitting_beta(entropy, beta_values, neurons, k, layers, supervised, r, lmb,
 def disentanglement(neurons, layers, k, r, m, lmb, split, supervised, beta, h_norm, max_it, error, av_counter, dynamic, rng_ss, av = True):
 
 
-    system = tam(rng_ss = rng_ss, neurons=neurons, layers = layers, r=r, m=m, lmb=lmb, split = split, supervised = supervised)
+    system = tam(rng_ss = rng_ss, neurons=neurons, layers = layers, r=r, m=m, k=k, lmb=lmb, split = split, supervised = supervised)
 
-    t = ttime()
-    system.add_patterns(k)
     system.initial_state = system.mix()
     system.external_field = system.mix(0)
 
     return system.simulate(beta=beta, h_norm = h_norm, max_it=max_it, error=error, av_counter=av_counter, dynamic=dynamic, av = av)
 
 
-def disentanglement_2d(entropy, y_values, y_arg, x_values, x_arg, m, supervised, disable=True, checker = None, **kwargs):
+def disentanglement_2d(entropy, y_values, y_arg, x_values, x_arg, layers, supervised, disable=True, checker = None, **kwargs):
 
     len_y = len(y_values)
     len_x = len(x_values)
 
-    mattis = np.zeros((len_x, len_y, 3, 3))
-    if supervised:
-        mattis_ex = np.zeros((len_x, len_y, 3, 3))
+    if x_arg == 'm':
+        m_max = np.max(x_values)
     else:
-        mattis_ex = np.zeros((len_x, len_y, m, 3, 3))
-    max_its = np.zeros((len_x, len_y), dtype=int)
+        m_max = kwargs['m']
+
+    mattis = np.zeros((len_x, len_y, layers, layers))
+
+    if supervised:
+        mattis_ex = np.zeros((len_x, len_y, layers, layers))
+    else:  # no average across examples in unsupervised experiments
+        mattis_ex = np.zeros((len_x, len_y, m_max, layers,
+                              layers))  # PENSAR COMO RESOLVER A QUESTÃO DO M, aqui e no disentanglement 2_d
+    max_its = np.zeros((len_x, len_y), dtype = int)
 
     t0 = ttime()
 
@@ -118,7 +122,11 @@ def disentanglement_2d(entropy, y_values, y_arg, x_values, x_arg, m, supervised,
             for idx_y, y_v in enumerate(y_values):
                 kwargs[y_arg] = y_v
 
-                mattis[idx_x, idx_y], mattis_ex[idx_x, idx_y], max_its[idx_x, idx_y] = disentanglement(rng_ss=rng_seeds[idx_x * len_y + idx_y], m = m, supervised = supervised, **kwargs)
+                if supervised:
+                    mattis[idx_x, idx_y], mattis_ex[idx_x, idx_y], max_its[idx_x, idx_y] = disentanglement(rng_ss=rng_seeds[idx_x * len_y + idx_y], supervised = supervised, **kwargs)
+                else: # unsupervised only as m example magnetizations
+                    mattis[idx_x, idx_y], mattis_ex[idx_x, idx_y, min(m_max, kwargs['m'])], max_its[idx_x, idx_y] = disentanglement(
+                        rng_ss=rng_seeds[idx_x * len_y + idx_y], supervised=supervised, **kwargs)
 
                 sanity_check(mattis, mattis_ex, max_its, checker = checker, idx = (idx_x, idx_y))
                 if not disable:
@@ -128,6 +136,56 @@ def disentanglement_2d(entropy, y_values, y_arg, x_values, x_arg, m, supervised,
 
     return mattis, mattis_ex, max_its
 
+# Disentanglement experiments in terms of lmb (y-axis) and some other parameter (x-axis)
+def disentanglement_lmb_r(entropy, x_arg, x_values, layers, lmb, beta, dynamic, split, supervised, max_it, error, av_counter, h_norm,
+                             disable=True, checker = None, **kwargs):
+
+    # Get length of input arrays
+    len_x = len(x_values)
+    len_lmb = len(lmb)
+
+    if x_arg == 'm':
+        m_max = np.max(x_values)
+    else:
+        m_max = kwargs['m']
+
+    mattis = np.zeros((len_x, len_lmb, layers, layers))
+
+    if supervised:
+        mattis_ex = np.zeros((len_x, len_lmb, layers, layers))
+    else: # no average across examples in unsupervised experiments
+        mattis_ex = np.zeros((len_x, len_lmb, m_max, layers, layers))
+    max_its = np.zeros((len_x, len_lmb), dtype = int)
+
+    t = ttime()
+    rng_seeds = np.random.SeedSequence(entropy=entropy).spawn(len_x)
+
+
+    with tqdm(total=len_x * len_lmb, disable=disable) as pbar:
+        for idx_x, x_v in enumerate(x_values):
+
+            kwargs[x_arg] = x_v
+            system = tam(rng_ss=rng_seeds[idx_x], split=split, supervised=supervised, layers = layers, **kwargs)
+            system.initial_state = system.mix()
+            system.external_field = system.mix(0)
+
+            for idx_lmb, lmb_v in enumerate(lmb):
+                matrix_J = system.insert_g(lmb_v)
+                if supervised:
+                    mattis[idx_x, idx_lmb], mattis_ex[idx_x, idx_lmb], max_its[idx_x, idx_lmb] = system.simulate(beta = beta, max_it = max_it, dynamic = dynamic, error = error, av_counter = av_counter, h_norm = h_norm, sim_J = matrix_J)
+                else: # unsupervised only has m example magnetizations
+                    mattis[idx_x, idx_lmb], mattis_ex[idx_x, idx_lmb,:min(m_max, kwargs['m'])], max_its[idx_x, idx_lmb] = system.simulate(
+                        beta=beta, max_it=max_it, dynamic=dynamic, error=error, av_counter=av_counter, h_norm=h_norm,
+                        sim_J=matrix_J)
+                sanity_check(mattis, mattis_ex, max_its, checker = checker, idx = (idx_x, idx_lmb))
+
+                if not disable:
+                    pbar.update(1)
+
+    t = ttime() - t
+    print(f'System ran in {round(t / 60)} minutes.')
+
+    return mattis, mattis_ex, max_its
 
 # Disentanglement experiments in terms of lambda and beta
 def disentanglement_lmb_beta(entropy, neurons, layers, k, r, m, lmb, beta, dynamic, split, supervised, max_it, error, av_counter, h_norm,
@@ -143,7 +201,7 @@ def disentanglement_lmb_beta(entropy, neurons, layers, k, r, m, lmb, beta, dynam
         mattis_ex = np.zeros((len_lmb, len_beta, 3, 3))
     else: # no average across examples in unsupervised experiments
         mattis_ex = np.zeros((len_lmb, len_beta, m, 3, 3))
-    max_its = np.zeros((len_lmb, len_beta))
+    max_its = np.zeros((len_lmb, len_beta), dtype = int)
 
     t = ttime()
 

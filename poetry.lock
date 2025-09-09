@@ -27,7 +27,7 @@ numpy = "^2.3.2"
 type = "git"
 url = "https://github.com/pdmourao/laboratory.git"
 reference = "HEAD"
-resolved_reference = "326f57d559a603463a833912847061371aede609"
+resolved_reference = "8fb27ee7e1a07bd5bee68545e270358066cd794d"
 
 [[package]]
 name = "numpy"
