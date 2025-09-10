@@ -25,7 +25,7 @@ kwargs = {'x_arg': 'r',
           'beta': np.inf,
           'h_norm': 0,
           'max_it': 100,
-          'split': False,
+          'split': split,
           'supervised': True,
           'error': 0,
           'av_counter': 1,
@@ -35,5 +35,6 @@ kwargs = {'x_arg': 'r',
 experiment = lab.Experiment(directory = 'Data', func = funcs.disentanglement_lmb_r, **kwargs)
 experiment.create()
 for sample in experiment.samples_missing(50):
-    experiment.run(sample, disable = False)
+    experiment.run(sample, disable = True)
+
 

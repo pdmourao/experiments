@@ -10,6 +10,8 @@ python = "^3.12"
 numpy = "^2.3.2"
 laboratory = {git = "https://github.com/pdmourao/laboratory.git"}
 tqdm = "^4.67.1"
+scipy = "^1.16.1"
+matplotlib = "^3.10.6"
 
 
 [build-system]

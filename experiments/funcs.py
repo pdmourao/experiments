@@ -93,7 +93,7 @@ def disentanglement(neurons, layers, k, r, m, lmb, split, supervised, beta, h_no
     return system.simulate(beta=beta, h_norm = h_norm, max_it=max_it, error=error, av_counter=av_counter, dynamic=dynamic, av = av)
 
 
-def disentanglement_2d(entropy, y_values, y_arg, x_values, x_arg, layers, supervised, disable=True, checker = None, **kwargs):
+def disentanglement_2d_withn(entropy, y_values, y_arg, x_values, x_arg, layers, supervised, disable=True, checker = None, **kwargs):
 
     len_y = len(y_values)
     len_x = len(x_values)
@@ -151,10 +151,6 @@ def disentanglement_lmb_r(entropy, x_arg, x_values, layers, lmb, beta, dynamic, 
 
     mattis = np.zeros((len_x, len_lmb, layers, layers))
 
-    if supervised:
-        mattis_ex = np.zeros((len_x, len_lmb, layers, layers))
-    else: # no average across examples in unsupervised experiments
-        mattis_ex = np.zeros((len_x, len_lmb, m_max, layers, layers))
     max_its = np.zeros((len_x, len_lmb), dtype = int)
 
     t = ttime()
@@ -171,12 +167,8 @@ def disentanglement_lmb_r(entropy, x_arg, x_values, layers, lmb, beta, dynamic, 
 
             for idx_lmb, lmb_v in enumerate(lmb):
                 matrix_J = system.insert_g(lmb_v)
-                if supervised:
-                    mattis[idx_x, idx_lmb], mattis_ex[idx_x, idx_lmb], max_its[idx_x, idx_lmb] = system.simulate(beta = beta, max_it = max_it, dynamic = dynamic, error = error, av_counter = av_counter, h_norm = h_norm, sim_J = matrix_J)
-                else: # unsupervised only has m example magnetizations
-                    mattis[idx_x, idx_lmb], mattis_ex[idx_x, idx_lmb,:min(m_max, kwargs['m'])], max_its[idx_x, idx_lmb] = system.simulate(
-                        beta=beta, max_it=max_it, dynamic=dynamic, error=error, av_counter=av_counter, h_norm=h_norm,
-                        sim_J=matrix_J)
+                mattis[idx_x, idx_lmb], mattis_ex, max_its[idx_x, idx_lmb] = system.simulate(beta = beta, max_it = max_it, dynamic = dynamic, error = error, av_counter = av_counter, h_norm = h_norm, sim_J = matrix_J)
+
                 sanity_check(mattis, mattis_ex, max_its, checker = checker, idx = (idx_x, idx_lmb))
 
                 if not disable:
@@ -185,10 +177,10 @@ def disentanglement_lmb_r(entropy, x_arg, x_values, layers, lmb, beta, dynamic, 
     t = ttime() - t
     print(f'System ran in {round(t / 60)} minutes.')
 
-    return mattis, mattis_ex, max_its
+    return mattis, max_its
 
 # Disentanglement experiments in terms of lambda and beta
-def disentanglement_lmb_beta(entropy, neurons, layers, k, r, m, lmb, beta, dynamic, split, supervised, max_it, error, av_counter, h_norm,
+def disentanglement_lmb_beta_withn(entropy, neurons, layers, k, r, m, lmb, beta, dynamic, split, supervised, max_it, error, av_counter, h_norm,
                              disable=True, checker = None):
 
     # Get length of input arrays

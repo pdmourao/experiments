@@ -11,7 +11,7 @@ if split:
     m = layers * m_per_layer
 else:
     m = m_per_layer
-x_values = np.sqrt(np.sqrt(1 / (rho_values * m_per_layer + 1)))
+x_values = np.sqrt(1 / (rho_values * m_per_layer + 1))
 
 y_values = np.linspace(start = 0, stop = 0.5, num = 50)
 
@@ -29,11 +29,11 @@ kwargs = {'x_arg': 'r',
           'supervised': False,
           'error': 0,
           'av_counter': 1,
-          'dynamic': 'sequential',
+          'dynamic': 'sequential'
           }
 
 experiment = lab.Experiment(directory = 'Data', func = funcs.disentanglement_lmb_r, **kwargs)
 experiment.create()
 for sample in experiment.samples_missing(50):
-    experiment.run(sample, disable = False)
+    experiment.run(sample, disable = True)
 
